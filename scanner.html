@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+<meta charset="UTF-8">
+<title>ՀՀ ID / Անձնագիր սկաներ — 100% օֆլայն</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body {font-family:Arial,sans-serif;margin:0;padding:20px;background:#f0f2f5;text-align:center;}
+  h1 {color:#1a3c8c;margin-bottom:5px;}
+  select, button {padding:15px;font-size:18px;margin:10px;border-radius:8px;border:none;}
+  select {background:#fff;width:90%;max-width:400px;}
+  button {background:#0066ff;color:white;cursor:pointer;}
+  button:disabled {background:#ccc; cursor:not-allowed;}
+  video {width:100%;max-width:600px;border:4px solid #333;border-radius:12px;margin:20px 0;}
+  #result {margin-top:30px;padding:20px;background:white;border-radius:12px;font-size:20px;text-align:left;display:inline-block;min-width:300px;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+  .hidden {display:none;}
+  #rawText {font-size:14px; color:#666; margin-top:10px; background:#f9f9f9; padding:10px; border-radius:5px; text-align:left; max-height:200px; overflow-y:auto;}
+  #loading {color:#0066ff; font-style:italic;}
+</style>
+</head>
+<body>
+
+<h1>ՀՀ փաստաթղթի սկաներ</h1>
+<small style="color:#555;">Ամբողջովին օֆլայն, առանց API (նորացված 2025)</small>
+<div id="loading">Բեռնում Tesseract-ը... (10-20 վայրկյան)</div>
+
+<select id="docType">
+  <option value="">— Ընտրեք փաստաթուղթը —</option>
+  <option value="id">ID քարտ</option>
+  <option value="passport">Անձնագիր</option>
+</select><br>
+
+<button id="startBtn" class="hidden" disabled>Միացնել տեսախցիկը</button>
+
+<div id="scanner" class="hidden">
+  <video id="video" playsinline autoplay muted></video><br>
+  <button id="snap" disabled>Լուսանկարել և հանել ՖԻՕ-ն</button>
+</div>
+
+<div id="result"></div>
+
+<script src="https://unpkg.com/@dynamsoft/dynamsoft-document-normalizer@1.2.10/dist/ddn.js"></script>
+<script src="https://unpkg.com/tesseract.js@5.1.0/dist/tesseract.min.js"></script>
+
+<script>
+let worker = null;
+let stream = null;
+const loadingDiv = document.getElementById('loading');
+const startBtn = document.getElementById('startBtn');
+const snapBtn = document.getElementById('snap');
+
+// Инициализация Tesseract с правильным путём (raw GitHub без .gz)
+async function initTesseract() {
+  try {
+    worker = await Tesseract.createWorker('hye', 1, {
+      workerPath: 'https://unpkg.com/tesseract.js@5.1.0/dist/worker.min.js',
+      langPath: 'https://github.com/tesseract-ocr/tessdata/raw/main',  // ← Правильный raw-путь: hye.traineddata (не .gz!)
+      corePath: 'https://unpkg.com/tesseract.js-core@5.1.0/tesseract-core.wasm.js',
+    });
+    console.log('Tesseract загружен с армянским (hye)');
+    loadingDiv.textContent = 'Գոյնակի! Ընտրեք փաստաթուղթը։';
+    startBtn.disabled = false;
+    snapBtn.disabled = false;
+  } catch (error) {
+    console.warn('Армянский не загрузился, fallback на eng:', error);
+    try {
+      worker = await Tesseract.createWorker('eng', 1, {
+        workerPath: 'https://unpkg.com/tesseract.js@5.1.0/dist/worker.min.js',
+        langPath: 'https://github.com/tesseract-ocr/tessdata/raw/main',
+        corePath: 'https://unpkg.com/tesseract.js-core@5.1.0/tesseract-core.wasm.js',
+      });
+      console.log('Fallback: Tesseract на английском (eng)');
+      loadingDiv.textContent = 'Օգտագործվում է անգլերեն OCR (լավ է աշխատում լատինական տեքստերի համար)։';
+      startBtn.disabled = false;
+      snapBtn.disabled = false;
+    } catch (fallbackError) {
+      loadingDiv.textContent = 'Սխալ բեռնման ժամանակ. Փորձեք վերագրել էջը։';
+      console.error('Полная ошибка Tesseract:', fallbackError);
+    }
+  }
+}
+initTesseract();
+
+// Выбор документа
+document.getElementById('docType').onchange = function() {
+  const v = this.value;
+  startBtn.classList.toggle('hidden', !v);
+  if (v) startBtn.textContent = v === 'id' ? 'Սկան ID քարտ' : 'Սկան անձնագիր';
+};
+
+// Запуск камеры
+startBtn.onclick = async () => {
+  document.getElementById('scanner').classList.remove('hidden');
+  startBtn.classList.add('hidden');
+
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
+  document.getElementById('video').srcObject = stream;
+};
+
+// Сканирование
+snapBtn.onclick = async () => {
+  if (!worker) {
+    alert('Tesseract ещё не готов... Подождите и обновите страницу.');
+    return;
+  }
+
+  const video = document.getElementById('video');
+  const canvas = document.createElement('canvas');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+
+  let imgDataUrl = canvas.toDataURL();
+
+  // Выравнивание
+  try {
+    const results = await Dynamsoft.DDN.DocumentNormalizer.detect(canvas);
+    if (results.length > 0) {
+      const norm = await Dynamsoft.DDN.DocumentNormalizer.normalize(canvas, results[0]);
+      imgDataUrl = norm.toDataURL();
+    }
+  } catch(e) {
+    console.log('Нормализация пропущена:', e);
+  }
+
+  // OCR
+  let text = '';
+  try {
+    const { data: { text: ocrText } } = await worker.recognize(imgDataUrl);
+    text = ocrText;
+  } catch (error) {
+    console.error('OCR ошибка:', error);
+    text = 'OCR не сработал. Попробуйте лучшее фото.';
+  }
+
+  // Парсинг
+  let surname = '', given = '', patronymic = '';
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 2);
+
+  for (let i = 0; i < lines.length - 1; i++) {
+    const label = lines[i].toLowerCase();
+    const value = lines[i + 1].replace(/[^Ա-ՖՕՒա-ֆօւA-Za-z\s\-]/g, '');
+    if (/ազգանուն|surname/i.test(label)) surname = value;
+    if (/անուն|given|name/i.test(label)) given = value;
+    if (/հայրական|patronymic/i.test(label)) patronymic = value;
+  }
+
+  // Резерв (последовательность имён)
+  if (!surname || !given) {
+    const match = text.match(/([Ա-ՖՕՒա-ֆօւA-Z][ա-ֆօւa-z\s\-]{2,25}[Ա-ՖՕՒA-Z][ա-ֆօւa-z\s\-]{2,25}[Ա-ՖՕՒA-Z])/iu);
+    if (match) {
+      const p = match[0].trim().split(/\s+/).slice(0, 3);
+      surname = surname || p[0];
+      given = given || p[1];
+      patronymic = patronymic || (p[2] || '');
+    }
+  }
+
+  const out = document.getElementById('result');
+  const type = document.getElementById('docType').value;
+  if (surname || given) {
+    out.innerHTML = `
+      <b>${type === 'id' ? 'ID քարտ' : 'Անձնագիր'}</b><br><br>
+      Ազգանուն: <b>${surname || '—'}</b><br>
+      Անուն:     <b>${given || '—'}</b><br>
+      Հայրական: <b>${patronymic || '—'}</b><br>
+      <div id="rawText">Սырой OCR: <small>${text.substring(0, 200)}...</small></div>
+    `;
+  } else {
+    out.innerHTML = `
+      Չհաջողվեց հանել ՖԻՕ-ն:<br>
+      Փորձեք լավ լույս, մոտիկից կամ անգլերեն տարբերակով (եթե փաստաթուղթը ունի լատինական տեքստ):<br>
+      <div id="rawText">Սырой OCR: <pre style="font-size:12px;">${text}</pre></div>
+    `;
+  }
+};
+</script>
+</body>
+</html>

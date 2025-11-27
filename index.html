@@ -10,15 +10,17 @@
   select, button {padding:15px;font-size:18px;margin:10px;border-radius:8px;border:none;}
   select {background:#fff;width:90%;max-width:400px;}
   button {background:#0066ff;color:white;cursor:pointer;}
+  button:disabled {background:#ccc;cursor:not-allowed;}
   video {width:100%;max-width:600px;border:4px solid #333;border-radius:12px;margin:20px 0;}
   #result {margin:30px auto;padding:20px;background:white;border-radius:12px;font-size:21px;text-align:left;display:inline-block;min-width:320px;box-shadow:0 4px 15px rgba(0,0,0,0.15);}
   .hidden {display:none;}
+  #loading {color:#0066ff; font-style:italic;}
 </style>
 </head>
 <body>
 
 <h1>ՀՀ փաստաթղթի սկաներ</h1>
-<small>Աշխատում է առանց ինտերնետի (после первой загрузки)</small><br><br>
+<small id="status">Բեռնում Tesseract-ը... (5-10 վայրկյան)</small><br><br>
 
 <select id="docType">
   <option value="">— Ընտրեք փաստաթուղթը —</option>
@@ -26,11 +28,11 @@
   <option value="passport">Անձնագիր</option>
 </select><br>
 
-<button id="startBtn" class="hidden">Միացնել տեսախցիկը</button>
+<button id="startBtn" class="hidden" disabled>Միացնել տեսախցիկը</button>
 
 <div id="scanner" class="hidden">
   <video id="video" playsinline autoplay muted></video><br>
-  <button id="snap">Լուսանկարել և հանել ՖԻՕ-ն</button>
+  <button id="snap" disabled>Լուսանկարել և հանել ՖԻՕ-ն</button>
 </div>
 
 <div id="result"></div>
@@ -41,41 +43,55 @@
 <script>
 let worker = null;
 let stream = null;
+const statusEl = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
+const snapBtn = document.getElementById('snap');
 
-// НОВЫЙ Tesseract с актуальным langPath (без 404)
+// Актуальный Tesseract (фикс 404)
 Tesseract.createWorker('eng', 1, {
   workerPath: 'https://unpkg.com/tesseract.js@5.1.0/dist/worker.min.js',
-  langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-data/eng@1.0.0',  // Официальный CDN 2025
+  langPath: 'https://cdn.jsdelivr.net/npm/@tesseract.js-data/eng@1.0.0/4.0.0_best_int',
   corePath: 'https://unpkg.com/tesseract.js-core@5.1.0/tesseract-core.wasm.js',
 }).then(w => {
   worker = w;
-  console.log('Tesseract загружен успешно!');
+  statusEl.textContent = 'Պատրաստ է! Ընտրեք փաստաթուղթը։';
+  startBtn.disabled = false;
+  snapBtn.disabled = false;
+  console.log('Tesseract готов!');
 }).catch(error => {
-  console.error('Ошибка Tesseract:', error);
-  // Fallback: используем дефолтный langPath
-  Tesseract.createWorker('eng').then(w => worker = w);
+  console.error('Tesseract ошибка:', error);
+  statusEl.textContent = 'Փորձում fallback...';
+  // Fallback без langPath
+  Tesseract.createWorker('eng').then(w => {
+    worker = w;
+    statusEl.textContent = 'Պատրաստ (fallback)!';
+    startBtn.disabled = false;
+    snapBtn.disabled = false;
+  }).catch(e => {
+    statusEl.textContent = 'Սխալ. Վերագրեք էջը։';
+    console.error('Fallback упал:', e);
+  });
 });
 
-// Выбор документа
+// Выбор
 document.getElementById('docType').onchange = function() {
   const v = this.value;
-  const btn = document.getElementById('startBtn');
-  btn.classList.toggle('hidden', !v);
-  if (v) btn.textContent = v === 'id' ? 'Սկան ID քարտ' : 'Սկան անձնագիր';
+  startBtn.classList.toggle('hidden', !v);
+  if (v) startBtn.textContent = v === 'id' ? 'Սկան ID քարտ' : 'Սկան անձնագիր';
 };
 
-// Запуск камеры
-document.getElementById('startBtn').onclick = async () => {
+// Камера
+startBtn.onclick = async () => {
   document.getElementById('scanner').classList.remove('hidden');
-  document.getElementById('startBtn').classList.add('hidden');
+  startBtn.classList.add('hidden');
   stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
   document.getElementById('video').srcObject = stream;
 };
 
-// Сканирование
-document.getElementById('snap').onclick = async () => {
+// Скан
+snapBtn.onclick = async () => {
   if (!worker) {
-    document.getElementById('result').innerHTML = 'Tesseract ещё загружается... Подождите 5–10 сек.';
+    document.getElementById('result').innerHTML = 'Tesseract ещё не готов... Обновите страницу.';
     return;
   }
 
@@ -94,7 +110,9 @@ document.getElementById('snap').onclick = async () => {
       const n = await Dynamsoft.DDN.DocumentNormalizer.normalize(canvas, r[0]);
       img = n.toDataURL();
     }
-  } catch(e) {}
+  } catch(e) {
+    console.log('Нормализация пропущена:', e);
+  }
 
   const { data: { text } } = await worker.recognize(img);
 
@@ -106,7 +124,7 @@ document.getElementById('snap').onclick = async () => {
     if (lines[i].includes('PATRONYMIC')) patronymic = lines[i+1].trim();
   }
 
-  // Резерв
+  // Резерв (ФИО в одной строке)
   if (!given) {
     const fallback = text.match(/[A-Z]{2,30}\s+[A-Z]{2,30}(\s+[A-Z]{2,30})?/i);
     if (fallback) {
@@ -118,12 +136,13 @@ document.getElementById('snap').onclick = async () => {
   }
 
   const out = document.getElementById('result');
+  const type = document.getElementById('docType').value;
   out.innerHTML = surname || given ?
-    `<b>${document.getElementById('docType').value === 'id' ? 'ID քարտ' : 'Անձնագիր'}</b><br><br>
+    `<b>${type === 'id' ? 'ID քարտ' : 'Անձնագիր'}</b><br><br>
      Ազգանուն: <b>${surname}</b><br>
      Անուն:     <b>${given}</b><br>
      Հայրական: <b>${patronymic}</b>` :
-    `Չհաջողվեց. Փորձեք լավ լույսի տակ. Raw текст: ${text.substring(0, 100)}...`;
+    `Չհաջողվեց. Փորձեք լավ լույսի տակ.<br><small>Raw OCR: ${text.substring(0, 150)}...</small>`;
 };
 </script>
 </body>

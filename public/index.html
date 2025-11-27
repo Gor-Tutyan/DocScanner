@@ -18,7 +18,7 @@
 <body>
 
 <h1>ՀՀ փաստաթղթի սկաներ</h1>
-<small>Աշխատում է առանց ինտերնետի</small><br><br>
+<small>Աշխատում է առանց ինտերնետի (после первой загрузки)</small><br><br>
 
 <select id="docType">
   <option value="">— Ընտրեք փաստաթուղթը —</option>
@@ -42,13 +42,21 @@
 let worker = null;
 let stream = null;
 
+// НОВЫЙ Tesseract с актуальным langPath (без 404)
 Tesseract.createWorker('eng', 1, {
   workerPath: 'https://unpkg.com/tesseract.js@5.1.0/dist/worker.min.js',
-  langPath: 'https://tesseract.projectnaptha.com/lang-data/4.0.0_fast',
+  langPath: 'https://cdn.jsdelivr.net/npm/tesseract.js-data/eng@1.0.0',  // Официальный CDN 2025
   corePath: 'https://unpkg.com/tesseract.js-core@5.1.0/tesseract-core.wasm.js',
-}).then(w => worker = w);
+}).then(w => {
+  worker = w;
+  console.log('Tesseract загружен успешно!');
+}).catch(error => {
+  console.error('Ошибка Tesseract:', error);
+  // Fallback: используем дефолтный langPath
+  Tesseract.createWorker('eng').then(w => worker = w);
+});
 
-// Выбор
+// Выбор документа
 document.getElementById('docType').onchange = function() {
   const v = this.value;
   const btn = document.getElementById('startBtn');
@@ -56,7 +64,7 @@ document.getElementById('docType').onchange = function() {
   if (v) btn.textContent = v === 'id' ? 'Սկան ID քարտ' : 'Սկան անձնագիր';
 };
 
-// Камера
+// Запуск камеры
 document.getElementById('startBtn').onclick = async () => {
   document.getElementById('scanner').classList.remove('hidden');
   document.getElementById('startBtn').classList.add('hidden');
@@ -64,8 +72,13 @@ document.getElementById('startBtn').onclick = async () => {
   document.getElementById('video').srcObject = stream;
 };
 
-// Скан
+// Сканирование
 document.getElementById('snap').onclick = async () => {
+  if (!worker) {
+    document.getElementById('result').innerHTML = 'Tesseract ещё загружается... Подождите 5–10 сек.';
+    return;
+  }
+
   const video = document.getElementById('video');
   const canvas = document.createElement('canvas');
   canvas.width = video.videoWidth;
@@ -74,6 +87,7 @@ document.getElementById('snap').onclick = async () => {
 
   let img = canvas.toDataURL();
 
+  // Нормализация
   try {
     const r = await Dynamsoft.DDN.DocumentNormalizer.detect(canvas);
     if (r.length > 0) {
@@ -92,6 +106,7 @@ document.getElementById('snap').onclick = async () => {
     if (lines[i].includes('PATRONYMIC')) patronymic = lines[i+1].trim();
   }
 
+  // Резерв
   if (!given) {
     const fallback = text.match(/[A-Z]{2,30}\s+[A-Z]{2,30}(\s+[A-Z]{2,30})?/i);
     if (fallback) {
@@ -108,7 +123,7 @@ document.getElementById('snap').onclick = async () => {
      Ազգանուն: <b>${surname}</b><br>
      Անուն:     <b>${given}</b><br>
      Հայրական: <b>${patronymic}</b>` :
-    `Չհաջողվեց. Փորձեք լավ լույսի տակ։`;
+    `Չհաջողվեց. Փորձեք լավ լույսի տակ. Raw текст: ${text.substring(0, 100)}...`;
 };
 </script>
 </body>

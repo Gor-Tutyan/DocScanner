@@ -44,7 +44,6 @@
     <label>Հեռախոսահամար <span style="color:red">*</span></label>
     <input type="text" id="phone" value="+374 " placeholder="+374 94 205775">
 
-    <!-- ДОКУМЕНТ — выбор из галереи -->
     <div class="photo-box required">
       <div style="font-weight:600;margin-bottom:15px;">ID քարտ կամ Անձնագիր</div>
       <button type="button" class="btn" id="chooseDoc">Ընտրել փաստաթուղթը</button>
@@ -53,7 +52,6 @@
       <div class="status error" id="docStatus">Պարտադիր է</div>
     </div>
 
-    <!-- СЕЛФИ — ФРОНТАЛЬНАЯ КАМЕРА (гарантированно работает) -->
     <div class="photo-box required">
       <div style="font-weight:600;margin-bottom:15px;">Սելֆի</div>
       <button type="button" class="btn" id="takeSelfie">Սելֆի անել</button>
@@ -67,22 +65,35 @@
 </div>
 
 <script>
-// Красивый и защищённый ввод телефона: +374 XX XXXXXX
+// ТЕЛЕФОН: красивый формат + курсор всегда после +374 
 const phoneInput = document.getElementById('phone');
+
 phoneInput.addEventListener('input', function(e) {
   let v = e.target.value.replace(/\D/g,'');
   if (!v.startsWith('374')) v = '374' + v.replace(/^374/, '');
   v = v.substring(0,11);
   
-  if (v.length >= 3) {
-    v = '+374 ' + v.substring(3,5) + (v.length > 5 ? ' ' + v.substring(5) : '');
-  } else {
-    v = '+374 ';
-  }
-  e.target.value = v;
+  let formatted = '+374 ';
+  if (v.length > 3) formatted += v.substring(3,5) + ' ';
+  if (v.length > 5) formatted += v.substring(5);
+  
+  e.target.value = formatted;
 });
 
-// Форматирование карты
+phoneInput.addEventListener('focus', function() {
+  // Курсор всегда после +374 
+  setTimeout(() => {
+    phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+  }, 0);
+});
+
+phoneInput.addEventListener('click', function() {
+  setTimeout(() => {
+    phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length);
+  }, 0);
+});
+
+// Карта — формат
 document.getElementById('card').addEventListener('input', function(e) {
   let v = e.target.value.replace(/\D/g,'').substring(0,16);
   v = v.match(/.{1,4}/g)?.join(' ') || v;
@@ -90,9 +101,9 @@ document.getElementById('card').addEventListener('input', function(e) {
   validateForm();
 });
 
-// Правильный алгоритм Луна
-function luhnCheck(cardNumber) {
-  const digits = cardNumber.replace(/\D/g, '').split('').map(Number).reverse();
+// Алгоритм Луна
+function luhnCheck(num) {
+  const digits = num.replace(/\s/g,'').split('').map(Number).reverse();
   let sum = 0;
   for (let i = 0; i < digits.length; i++) {
     let digit = digits[i];
@@ -105,27 +116,21 @@ function luhnCheck(cardNumber) {
   return sum % 10 === 0;
 }
 
-// Валидация формы
+// Валидация
 function validateForm() {
   const card = document.getElementById('card').value;
   const name = document.getElementById('name').value.trim();
   const surname = document.getElementById('surname').value.trim();
   const phone = document.getElementById('phone').value;
-  const docOk = document.getElementById('docImg').src && document.getElementById('docImg').style.display === 'block';
-  const selfieOk = document.getElementById('selfieImg').src && document.getElementById('selfieImg').style.display === 'block';
+  const docOk = document.getElementById('docImg').style.display === 'block';
+  const selfieOk = document.getElementById('selfieImg').style.display === 'block';
 
-  const cardClean = card.replace(/\s/g,'');
-  const cardValid = cardClean.length === 16 && luhnCheck(cardClean);
+  const cardValid = card.length === 19 && luhnCheck(card);
   const phoneValid = /^\+374 \d{2} \d{6}$/.test(phone);
 
   // Ошибка карты
-  if (card.length === 19 && !cardValid) {
-    document.getElementById('cardError').textContent = 'Սխալ քարտի համար';
-    document.getElementById('card').classList.add('invalid');
-  } else {
-    document.getElementById('cardError').textContent = '';
-    document.getElementById('card').classList.remove('invalid');
-  }
+  document.getElementById('cardError').textContent = (card.length === 19 && !cardValid) ? 'Սխալ քարտի համար' : '';
+  document.getElementById('card').classList.toggle('invalid', card.length === 19 && !cardValid);
 
   // Фото
   document.getElementById('docStatus').textContent = docOk ? 'Ընտրված է' : 'Պարտադիր է';
@@ -140,9 +145,7 @@ function validateForm() {
 }
 
 // Запуск валидации
-['card','name','surname','phone'].forEach(id => {
-  document.getElementById(id).addEventListener('input', validateForm);
-});
+['card','name','surname','phone'].forEach(id => document.getElementById(id).addEventListener('input', validateForm));
 
 // Документ
 document.getElementById('chooseDoc').onclick = () => document.getElementById('docFile').click();
@@ -154,10 +157,8 @@ document.getElementById('docFile').onchange = e => {
   }
 };
 
-// СЕЛФИ — ГАРАНТИРОВАННО РАБОТАЕТ на всех телефонах
-document.getElementById('takeSelfie').onclick = () => {
-  document.getElementById('selfieCam').click();
-};
+// Селфи
+document.getElementById('takeSelfie').onclick = () => document.getElementById('selfieCam').click();
 document.getElementById('selfieCam').onchange = e => {
   if (e.target.files[0]) {
     document.getElementById('selfieImg').src = URL.createObjectURL(e.target.files[0]);

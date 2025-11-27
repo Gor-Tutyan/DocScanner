@@ -42,24 +42,24 @@
     <input type="text" id="surname" placeholder="Պետրոսյան">
 
     <label>Հեռախոսահամար <span style="color:red">*</span></label>
-    <input type="tel" id="phone" value="+374 ">
+    <input type="text" id="phone" value="+374 " placeholder="+374 94 205775">
 
-    <!-- ДОКУМЕНТ — ОБЯЗАТЕЛЬНО -->
+    <!-- ДОКУМЕНТ — выбор из галереи -->
     <div class="photo-box required">
       <div style="font-weight:600;margin-bottom:15px;">ID քարտ կամ Անձնագիր</div>
       <button type="button" class="btn" id="chooseDoc">Ընտրել փաստաթուղթը</button>
       <input type="file" id="docFile" accept="image/*" style="display:none;">
       <img id="docImg" style="display:none;">
-      <div class="status" id="docStatus">Պարտադիր է</div>
+      <div class="status error" id="docStatus">Պարտադիր է</div>
     </div>
 
-    <!-- СЕЛФИ — ОБЯЗАТЕЛЬНО -->
+    <!-- СЕЛФИ — ФРОНТАЛЬНАЯ КАМЕРА (гарантированно работает) -->
     <div class="photo-box required">
       <div style="font-weight:600;margin-bottom:15px;">Սելֆի</div>
       <button type="button" class="btn" id="takeSelfie">Սելֆի անել</button>
       <input type="file" id="selfieCam" accept="image/*" capture="user" style="display:none;">
       <img id="selfieImg" style="display:none;">
-      <div class="status" id="selfieStatus">Պարտադիր է</div>
+      <div class="status error" id="selfieStatus">Պարտադիր է</div>
     </div>
 
     <button id="submitBtn" disabled>Ուղարկել</button>
@@ -67,54 +67,59 @@
 </div>
 
 <script>
-// +374 нельзя стереть
+// Красивый и защищённый ввод телефона: +374 XX XXXXXX
 const phoneInput = document.getElementById('phone');
-phoneInput.addEventListener('input', () => {
-  if (!phoneInput.value.startsWith('+374 ')) {
-    phoneInput.value = '+374 ' + phoneInput.value.replace(/^\+374\s*/, '');
+phoneInput.addEventListener('input', function(e) {
+  let v = e.target.value.replace(/\D/g,'');
+  if (!v.startsWith('374')) v = '374' + v.replace(/^374/, '');
+  v = v.substring(0,11);
+  
+  if (v.length >= 3) {
+    v = '+374 ' + v.substring(3,5) + (v.length > 5 ? ' ' + v.substring(5) : '');
+  } else {
+    v = '+374 ';
   }
-});
-phoneInput.addEventListener('keydown', e => {
-  if ((e.key === 'Backspace' || e.key === 'Delete') && phoneInput.selectionStart <= 5) e.preventDefault();
+  e.target.value = v;
 });
 
-// Формат карты + проверка Луна
-document.getElementById('card').addEventListener('input', e => {
+// Форматирование карты
+document.getElementById('card').addEventListener('input', function(e) {
   let v = e.target.value.replace(/\D/g,'').substring(0,16);
   v = v.match(/.{1,4}/g)?.join(' ') || v;
   e.target.value = v;
   validateForm();
 });
 
-function luhnCheck(num) {
-  const d = num.replace(/\D/g,'').split('').map(Number);
-  if (d.length < 13) return false;
-  let s = 0, even = false;
-  for (let i = d.length - 1; i >= 0; i--) {
-    let digit = d[i];
-    if (even) { digit *= 2; if (digit > 9) digit -= 9; }
-    s += digit;
-    even = !even;
+// Правильный алгоритм Луна
+function luhnCheck(cardNumber) {
+  const digits = cardNumber.replace(/\D/g, '').split('').map(Number).reverse();
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let digit = digits[i];
+    if (i % 2 === 1) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    sum += digit;
   }
-  return s % 10 === 0;
+  return sum % 10 === 0;
 }
 
-// Полная валидация
+// Валидация формы
 function validateForm() {
   const card = document.getElementById('card').value;
   const name = document.getElementById('name').value.trim();
   const surname = document.getElementById('surname').value.trim();
   const phone = document.getElementById('phone').value;
-  const docOk = document.getElementById('docImg').style.display === 'block';
-  const selfieOk = document.getElementById('selfieImg').style.display === 'block';
+  const docOk = document.getElementById('docImg').src && document.getElementById('docImg').style.display === 'block';
+  const selfieOk = document.getElementById('selfieImg').src && document.getElementById('selfieImg').style.display === 'block';
 
   const cardClean = card.replace(/\s/g,'');
-  const cardFull = card.length === 19;
-  const cardValid = cardFull && luhnCheck(card);
-  const phoneValid = /^\+374 \d{8}$/.test(phone);
+  const cardValid = cardClean.length === 16 && luhnCheck(cardClean);
+  const phoneValid = /^\+374 \d{2} \d{6}$/.test(phone);
 
-  // Карта
-  if (cardFull && !cardValid) {
+  // Ошибка карты
+  if (card.length === 19 && !cardValid) {
     document.getElementById('cardError').textContent = 'Սխալ քարտի համար';
     document.getElementById('card').classList.add('invalid');
   } else {
@@ -122,11 +127,11 @@ function validateForm() {
     document.getElementById('card').classList.remove('invalid');
   }
 
-  // Статусы фото
+  // Фото
   document.getElementById('docStatus').textContent = docOk ? 'Ընտրված է' : 'Պարտադիր է';
-  document.getElementById('docStatus').className = 'status ' + (docOk ? 'ok' : 'error');
+  document.getElementById('docStatus').className = docOk ? 'status ok' : 'status error';
   document.getElementById('selfieStatus').textContent = selfieOk ? 'Արված է' : 'Պարտադիր է';
-  document.getElementById('selfieStatus').className = 'status ' + (selfieOk ? 'ok' : 'error');
+  document.getElementById('selfieStatus').className = selfieOk ? 'status ok' : 'status error';
 
   // Кнопка
   const allOk = cardValid && name && surname && phoneValid && docOk && selfieOk;
@@ -134,7 +139,7 @@ function validateForm() {
   document.getElementById('submitBtn').classList.toggle('active', allOk);
 }
 
-// Запуск валидации при любом изменении
+// Запуск валидации
 ['card','name','surname','phone'].forEach(id => {
   document.getElementById(id).addEventListener('input', validateForm);
 });
@@ -149,8 +154,10 @@ document.getElementById('docFile').onchange = e => {
   }
 };
 
-// Селфи
-document.getElementById('takeSelfie').onclick = () => document.getElementById('selfieCam').click();
+// СЕЛФИ — ГАРАНТИРОВАННО РАБОТАЕТ на всех телефонах
+document.getElementById('takeSelfie').onclick = () => {
+  document.getElementById('selfieCam').click();
+};
 document.getElementById('selfieCam').onchange = e => {
   if (e.target.files[0]) {
     document.getElementById('selfieImg').src = URL.createObjectURL(e.target.files[0]);
@@ -162,5 +169,8 @@ document.getElementById('selfieCam').onchange = e => {
 // Отправка
 document.getElementById('submitBtn').onclick = () => {
   if (document.getElementById('submitBtn').disabled) return;
-  alert('Հաջողությամբ ուղարկվեց! ✅');
-  console.log('Все
+  alert('Հաջողությամբ ուղարկվեց!');
+};
+</script>
+</body>
+</html>

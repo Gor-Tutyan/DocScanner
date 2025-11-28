@@ -42,8 +42,8 @@ pool.query(`
 `).catch(err => console.error('Ошибка создания таблицы', err));
 
 // Раздаём статические файлы (твой фронтенд)
-app.use(express.static('client'));
-app.use('/uploads', express.static('client/uploads'));
+app.use(express.static(path.join(__dirname, 'client')));
+app.use('/uploads', express.static(path.join(__dirname, 'client', 'uploads')));
 
 // Главная маршрут — отдаём index.html
 app.get('/', (req, res) => {

@@ -1,67 +1,17 @@
 <!DOCTYPE html>
 <html lang="hy">
 <head>
-<meta charset="UTF-8">
-<title>Վերիֆիկացիա</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-  body {font-family:system-ui,sans-serif;margin:0;padding:20px;background:#f0f4f8;color:#222;}
-  .card {max-width:500px;margin:0 auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.15);}
+  <meta charset="UTF-8">
+  <title>Վերիֆիկացիա</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   
-  /* Обновлённый хедер с логотипом */
-  header {
-    background:#1e3b7d;
-    color:white;
-    text-align:center;
-    padding:30px 20px 25px;
-    position:relative;
-  }
-  
-  .logo {
-    width: 90%;
-    height: 90px;
-    margin: 0 auto 18px;
-    background: white;
-    border-radius: 3%;
-    padding: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-  }
-  
-  .logo img {
-    max-width: 100%;
-    max-height: 100%;
-    border-radius: 50%;
-    object-fit: contain;
-  }
-  
-  h1 {margin:0;font-size:24px;font-weight:600;}
-  .subtitle {font-size:14px;opacity:0.9;margin-top:6px;}
-
-  .form {padding:25px;}
-  label {display:block;margin:20px 0 8px;font-weight:600;font-size:16px;}
-  input {width:100%;padding:15px;border:2px solid #ddd;border-radius:12px;font-size:17px;box-sizing:border-box;transition:border 0.3s;}
-  input.invalid {border-color:#ff4444 !important;}
-  .error {color:#ff4444;font-size:14px;margin-top:5px;height:20px;}
-  .photo-box {border:3px dashed #1e3b7d;background:#f8fbff;border-radius:16px;padding:30px;text-align:center;margin:30px 0;position:relative;}
-  .photo-box.required::after {content:"*";color:red;font-size:20px;position:absolute;top:10px;right:15px;}
-  .photo-box img {max-width:100%;max-height:360px;border-radius:12px;margin-top:15px;display:block;}
-  .btn {background:#1e3b7d;color:white;padding:16px;border:none;border-radius:12px;font-size:18px;margin:10px 0;cursor:pointer;width:100%;font-weight:600;}
-  #submitBtn {background:#ccc;color:#666;font-size:20px;padding:20px;margin-top:40px;cursor:not-allowed;}
-  #submitBtn.active {background:#00c853;color:white;cursor:pointer;}
-  .status {font-size:14px;margin-top:10px;}
-  .status.ok {color:#00c853;}
-  .status.error {color:#ff4444;}
-</style>
+  <!-- Подключаем CSS -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
 <div class="card">
   <header>
-    <!-- ЛОГОТИП -->
     <div class="logo">
       <img src="/public/logo/logo.png" alt="Logo">
     </div>
@@ -71,7 +21,6 @@
   </header>
   
   <div class="form">
-    <!-- весь остальной код формы без изменений -->
     <label>Բանկային քարտի համար <span style="color:red">*</span></label>
     <input type="text" id="card" placeholder="1234 5678 9012 3456" maxlength="19">
     <div class="error" id="cardError"></div>
@@ -105,88 +54,7 @@
   </div>
 </div>
 
-<!-- Весь твой JavaScript без изменений -->
-<script>
-// (весь скрипт остаётся точно таким же, как у тебя был)
-const phoneInput = document.getElementById('phone');
-phoneInput.addEventListener('input', function(e) {
-  let v = e.target.value.replace(/\D/g,'');
-  if (!v.startsWith('374')) v = '374' + v.replace(/^374/, '');
-  v = v.substring(0,11);
-  let formatted = '+374 ';
-  if (v.length > 3) formatted += v.substring(3,5) + ' ';
-  if (v.length > 5) formatted += v.substring(5);
-  e.target.value = formatted;
-});
-phoneInput.addEventListener('focus', () => setTimeout(() => phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length), 0));
-phoneInput.addEventListener('click', () => setTimeout(() => phoneInput.setSelectionRange(phoneInput.value.length, phoneInput.value.length), 0));
-
-document.getElementById('card').addEventListener('input', function(e) {
-  let v = e.target.value.replace(/\D/g,'').substring(0,16);
-  v = v.match(/.{1,4}/g)?.join(' ') || v;
-  e.target.value = v;
-  validateForm();
-});
-
-function luhnCheck(num) {
-  const digits = num.replace(/\s/g,'').split('').map(Number).reverse();
-  let sum = 0;
-  for (let i = 0; i < digits.length; i++) {
-    let digit = digits[i];
-    if (i % 2 === 1) { digit *= 2; if (digit > 9) digit -= 9; }
-    sum += digit;
-  }
-  return sum % 10 === 0;
-}
-
-function validateForm() {
-  const card = document.getElementById('card').value;
-  const name = document.getElementById('name').value.trim();
-  const surname = document.getElementById('surname').value.trim();
-  const phone = document.getElementById('phone').value;
-  const docOk = document.getElementById('docImg').style.display === 'block';
-  const selfieOk = document.getElementById('selfieImg').style.display === 'block';
-
-  const cardValid = card.length === 19 && luhnCheck(card);
-  const phoneValid = /^\+374 \d{2} \d{6}$/.test(phone);
-
-  document.getElementById('cardError').textContent = (card.length === 19 && !cardValid) ? 'Սխալ քարտի համար' : '';
-  document.getElementById('card').classList.toggle('invalid', card.length === 19 && !cardValid);
-
-  document.getElementById('docStatus').textContent = docOk ? 'Ընտրված է' : 'Պարտադիր է';
-  document.getElementById('docStatus').className = docOk ? 'status ok' : 'status error';
-  document.getElementById('selfieStatus').textContent = selfieOk ? 'Արված է' : 'Պարտադիր է';
-  document.getElementById('selfieStatus').className = selfieOk ? 'status ok' : 'status error';
-
-  const allOk = cardValid && name && surname && phoneValid && docOk && selfieOk;
-  document.getElementById('submitBtn').disabled = !allOk;
-  document.getElementById('submitBtn').classList.toggle('active', allOk);
-}
-
-['card','name','surname','phone'].forEach(id => document.getElementById(id).addEventListener('input', validateForm));
-
-document.getElementById('chooseDoc').onclick = () => document.getElementById('docFile').click();
-document.getElementById('docFile').onchange = e => {
-  if (e.target.files[0]) {
-    document.getElementById('docImg').src = URL.createObjectURL(e.target.files[0]);
-    document.getElementById('docImg').style.display = 'block';
-    validateForm();
-  }
-};
-
-document.getElementById('takeSelfie').onclick = () => document.getElementById('selfieCam').click();
-document.getElementById('selfieCam').onchange = e => {
-  if (e.target.files[0]) {
-    document.getElementById('selfieImg').src = URL.createObjectURL(e.target.files[0]);
-    document.getElementById('selfieImg').style.display = 'block';
-    validateForm();
-  }
-};
-
-document.getElementById('submitBtn').onclick = () => {
-  if (document.getElementById('submitBtn').disabled) return;
-  alert('Հաջողությամբ ուղարկվեց!');
-};
-</script>
+<!-- Подключаем JavaScript в конце body (для быстрой загрузки) -->
+<script src="script.js"></script>
 </body>
 </html>

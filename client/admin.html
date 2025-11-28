@@ -5,20 +5,52 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ադմին • Վերիֆիկացիա</title>
   <style>
-    body {font-family:system-ui,sans-serif;background:#f4f6f9;margin:0;padding:20px;color:#222;}
-    .container {max-width:1200px;margin:0 auto;background:white;border-radius:16px;overflow:hidden;box-shadow:0 10px 40px rgba(0,0,0,0.15);}
-    header {background:#1e3b7d;color:white;text-align:center;padding:30px;}
-    h1 {margin:0;font-size:28px;}
-    .count {background:#00c853;color:white;padding:10px 20px;border-radius:50px;font-weight:bold;margin-top:10px;display:inline-block;}
+    body {font-family:system-ui,sans-serif;background:#f5f7fa;margin:0;padding:20px;color:#222;}
+    .container {max-width:1300px;margin:0 auto;background:white;border-radius:20px;overflow:hidden;box-shadow:0 15px 50px rgba(0,0,0,0.15);}
+    header {background:#1e3b7d;color:white;text-align:center;padding:35px;}
+    h1 {margin:0;font-size:32px;}
+    .count {background:#00c853;color:white;padding:12px 28px;border-radius:50px;font-weight:bold;margin-top:12px;display:inline-block;font-size:20px;}
     table {width:100%;border-collapse:collapse;margin-top:20px;}
-    th {background:#1e3b7d;color:white;padding:16px;text-align:center;}
-    td {padding:14px;text-align:center;border-bottom:1px solid #eee;}
+    th {background:#1e3b7d;color:white;padding:18px;text-align:center;font-size:15px;}
+    td {padding:16px;text-align:center;border-bottom:1px solid #eee;vertical-align:middle;}
     tr:hover {background:#f8fbff;}
-    img {max-width:220px;max-height:220px;border-radius:12px;box-shadow:0 4px 15px rgba(0,0,0,0.2);cursor:pointer;transition:0.3s;}
-    img:hover {transform:scale(1.05);}
-    .back {text-align:center;margin:40px 0;}
-    .back a {color:#1e3b7d;font-size:18px;text-decoration:none;font-weight:600;}
-    .no-data {text-align:center;padding:60px;color:#666;font-size:18px;}
+
+    /* Маленькие превью в таблице */
+    .photo-cell {cursor:pointer;position:relative;}
+    .photo-preview {
+      width:120px;height:150px;border-radius:14px;overflow:hidden;margin:0 auto;
+      border:3px solid #ddd;box-shadow:0 6px 20px rgba(0,0,0,0.15);transition:0.3s;
+    }
+    .photo-preview:hover {transform:scale(1.08);border-color:#003087;}
+    .photo-preview img {width:100%;height:100%;object-fit:cover;}
+
+    /* Модальное окно с двумя большими фото */
+    .modal {
+      display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;
+      background:rgba(0,0,0,0.95);justify-content:center;align-items:center;padding:20px;
+    }
+    .modal-content {
+      background:white;border-radius:24px;padding:30px;max-width:1000px;width:100%;
+      position:relative;box-shadow:0 30px 80px rgba(0,0,0,0.7);
+    }
+    .close {
+      position:absolute;top:15px;right:25px;font-size:50px;color:#aaa;cursor:pointer;z-index:10;
+    }
+    .close:hover {color:#fff;}
+    .modal-photos {
+      display:flex;gap:30px;justify-content:center;flex-wrap:wrap;
+    }
+    .modal-photos img {
+      max-width:100%;max-height:75vh;border-radius:20px;
+      box-shadow:0 20px 50px rgba(0,0,0,0.5);
+    }
+    .modal-labels {
+      display:flex;justify-content:space-around;margin-top:20px;
+      font-weight:bold;color:#003087;font-size:20px;
+    }
+    .back {text-align:center;margin:50px 0;}
+    .back a {color:#1e3b7d;font-size:19px;text-decoration:none;font-weight:600;}
+    .no-data {text-align:center;padding:80px;color:#666;font-size:20px;}
   </style>
 </head>
 <body>
@@ -29,16 +61,46 @@
       <div class="count" id="total">Բեռնվում է...</div>
     </header>
 
-    <div id="content">
+    <div id="content" style="padding:20px">
       <div class="no-data">Բեռնվում է...</div>
     </div>
 
     <div class="back">
-      <a href="/">← Հիմնական էջ</a>
+      <a href="/">Հիմնական էջ</a>
+    </div>
+  </div>
+
+  <!-- Модальное окно -->
+  <div id="photoModal" class="modal" onclick="if(event.target===this) closeModal()">
+    <div class="modal-content">
+      <span class="close" onclick="closeModal()">×</span>
+      <div class="modal-photos">
+        <img id="modalDoc" src="" alt="Փաստաթուղթ">
+        <img id="modalSelfie" src="" alt="Սելֆի">
+      </div>
+      <div class="modal-labels">
+        <div>Փաստաթուղթ</div>
+        <div>Սելֆի</div>
+      </div>
     </div>
   </div>
 
   <script>
+    let currentDoc = '', currentSelfie = '';
+
+    function openModal(docSrc, selfieSrc) {
+      currentDoc = docSrc;
+      currentSelfie = selfieSrc;
+      document.getElementById('modalDoc').src = docSrc;
+      document.getElementById('modalSelfie').src = selfieSrc;
+      document.getElementById('photoModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('photoModal').style.display = 'none';
+    }
+
+    // Загрузка данных
     fetch('/api/verifications')
       .then(r => r.json())
       .then(data => {
@@ -63,16 +125,21 @@
 
         data.forEach(row => {
           const date = new Date(row.created_at).toLocaleString('hy-AM');
+          const docUrl = '/' + row.doc_path;
+          const selfieUrl = '/' + row.selfie_path;
+
           html += `
             <tr>
               <td><b>${row.id}</b></td>
               <td>${row.name} ${row.surname}</td>
               <td>${row.phone}</td>
               <td><code>${row.card}</code></td>
-              <td><a href="/${row.doc_path}" target="_blank">
-  <img src="/${row.doc_path}" alt="doc"></a></td>
-<td><a href="/${row.selfie_path}" target="_blank">
-  <img src="/${row.selfie_path}" alt="selfie"></a></td>
+              <td class="photo-cell" onclick="openModal('${docUrl}', '${selfieUrl}')">
+                <div class="photo-preview"><img src="${docUrl}" alt="doc"></div>
+              </td>
+              <td class="photo-cell" onclick="openModal('${docUrl}', '${selfieUrl}')">
+                <div class="photo-preview"><img src="${selfieUrl}" alt="selfie"></div>
+              </td>
               <td>${date}</td>
             </tr>`;
         });

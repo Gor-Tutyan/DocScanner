@@ -51,24 +51,55 @@ app.get('/', (req, res) => {
 });
 
 // Приём формы + фото
+// Приём формы + фото (создаём папку по ID!)
 app.post('/submit', upload.fields([
   { name: 'docFile', maxCount: 1 },
   { name: 'selfieFile', maxCount: 1 }
 ]), async (req, res) => {
   try {
     const { card, name, surname, phone } = req.body;
-    const docPath = req.files['docFile'][0].filename;
-    const selfiePath = req.files['selfieFile'][0].filename;
+
+    // Сначала вставляем в базу (чтобы получить ID)
+    const result = await pool.query(
+      `INSERT INTO verifications (card, name, surname, phone, doc_path, selfie_path)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id`,
+      [card, name, surname, phone, 'temp.jpg', 'temp.jpg'] // временные имена
+    );
+
+    const verificationId = result.rows[0].id;
+    const folderPath = path.join(__dirname, 'client', 'uploads', String(verificationId));
+    
+    // Создаём папку по ID
+    if (!fs.existsSync(folderPath)) {
+      fs.mkdirSync(folderPath, { recursive: true });
+    }
+
+    // Сохраняем фото с понятными именами
+    const docFile = req.files['docFile'][0];
+    const selfieFile = req.files['selfieFile'][0];
+
+    const docExt = path.extname(docFile.originalname);
+    const selfieExt = path.extname(selfieFile.originalname);
+
+    const docPath = path.join(folderPath, `document${docExt}`);
+    const selfiePath = path.join(folderPath, `selfie${selfieExt}`);
+
+    fs.renameSync(docFile.path, docPath);
+    fs.renameSync(selfieFile.path, selfiePath);
+
+    // Обновляем пути в базе
+    const relativeDocPath = `uploads/${verificationId}/document${docExt}`;
+    const relativeSelfiePath = `uploads/${verificationId}/selfie${selfieExt}`;
 
     await pool.query(
-      `INSERT INTO verifications (card, name, surname, phone, doc_path, selfie_path)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [card, name, surname, phone, docPath, selfiePath]
+      `UPDATE verifications SET doc_path = $1, selfie_path = $2 WHERE id = $3`,
+      [relativeDocPath, relativeSelfiePath, verificationId]
     );
 
     res.json({ success: true, message: 'Հաջողությամբ ուղարկվեց!' });
   } catch (err) {
-    console.error(err);
+    console.error('Ошибка при сохранении:', err);
     res.status(500).json({ success: false, message: 'Սերվերի սխալ' });
   }
 });
